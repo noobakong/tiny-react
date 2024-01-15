@@ -6,5 +6,7 @@ export default antfu({
   rules: {
     'ts/ban-ts-comment': 'off',
     'no-console': 'off',
+    'style/brace-style': 'off',
+    'curly': 'off',
   },
 })

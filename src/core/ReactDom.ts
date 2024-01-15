@@ -1,5 +1,5 @@
-import type { ElementItem } from './React.ts'
 import React from './React.ts'
+import type { ElementItem } from '@/type/index.ts'
 
 function createRoot(container: HTMLElement) {
   return {
