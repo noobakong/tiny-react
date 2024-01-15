@@ -2,13 +2,24 @@ import React from './core/React.ts'
 
 const App = (
   <div id="hhhh">
-    <div>good</div>
-    {/* @ts-expect-error */}
-    <div style="background: red">hello </div>
-    tiny-react
     <div>
-      dddd
-      <div>cccc</div>
+      a
+      <div>
+        b
+        <div>
+          pp
+        </div>
+        <div>
+          d
+          <div>e</div>
+          <div>f</div>
+        </div>
+      </div>
+      <div>
+        c
+        <div>j</div>
+        <div>h</div>
+      </div>
     </div>
   </div>
 )

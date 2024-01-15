@@ -1,5 +1,54 @@
 import type { ElementItem, FiberItemType } from '@/type'
 
+export default {
+  createElement,
+  render,
+}
+
+let nextFiber: FiberItemType | null | undefined = null
+function render(el: ElementItem, container: HTMLElement) {
+  nextFiber = {
+    dom: container,
+    props: {
+      children: [el],
+    },
+    child: null,
+    sibling: null,
+    parent: null,
+    type: el.type,
+  }
+}
+
+function workLoop(deadLine: IdleDeadline) {
+  let shouldYield = false
+  while (!shouldYield && nextFiber) {
+    nextFiber = performUnitOfWork(nextFiber)
+    shouldYield = deadLine.timeRemaining() < 1
+  }
+  requestIdleCallback(workLoop)
+}
+requestIdleCallback(workLoop)
+
+function performUnitOfWork(fiber: FiberItemType) {
+  // debugger
+  if (!fiber.dom) {
+    // 1. 创建dom
+    const dom = fiber.dom = createDom(fiber.type)
+    // 2. 设置属性
+    updateProps(dom, fiber.props)
+    // 3. 添加dom
+    fiber.parent && fiber.parent.dom?.appendChild(dom)
+  }
+  // 4. 创建下一个任务 设置好链表指针
+  initChildren(fiber)
+  // 5. 返回下一个任务
+  if (fiber.child)
+    return fiber.child
+  if (fiber.sibling)
+    return fiber.sibling
+  return fiber.parent?.sibling
+}
+
 function createTextNode(text: string) {
   return {
     type: 'TEXT_ELEMENT',
@@ -26,51 +75,21 @@ function createElement(
   }
 }
 
-function render(el: ElementItem, container: HTMLElement) {
-  // eslint-disable-next-line ts/no-use-before-define
-  nextFiber = {
-    dom: container,
-    props: {
-      children: [el],
-    },
-    child: null,
-    sibling: null,
-    parent: null,
-    type: el.type,
-  }
+function createDom(type: string) {
+  const dom = type === 'TEXT_ELEMENT'
+    ? document.createTextNode('')
+    : document.createElement(type)
+  return dom
 }
 
-let nextFiber: FiberItemType | null | undefined = null
-
-function workLoop(deadLine: IdleDeadline) {
-  let shouldYield = false
-  while (!shouldYield && nextFiber) {
-    nextFiber = performUnitOfWork(nextFiber)
-    shouldYield = deadLine.timeRemaining() < 1
-  }
-  requestIdleCallback(workLoop)
+function updateProps(dom: HTMLElement | Text, props: ElementItem['props']) {
+  Object.keys(props).forEach((key) => {
+    if (key === 'children')
+      return;
+    (dom as any)[key] = props[key]
+  })
 }
-requestIdleCallback(workLoop)
-
-function performUnitOfWork(fiber: FiberItemType) {
-  if (!fiber.dom) {
-    // 1. 创建dom
-    const dom = fiber.type === 'TEXT_ELEMENT'
-      ? document.createTextNode('')
-      : document.createElement(fiber.type)
-    fiber.dom = dom
-
-    // 2. 设置属性
-    Object.keys(fiber.props).forEach((key) => {
-      if (key === 'children')
-        return;
-      (dom as any)[key] = fiber.props[key]
-    })
-    // 3. 添加dom
-    fiber.parent && fiber.parent.dom?.appendChild(dom)
-  }
-
-  // 4. 创建下一个任务 设置好链表指针
+function initChildren(fiber: FiberItemType) {
   const children = fiber.props.children
   let prevChild: FiberItemType | null = null
   children.forEach((child, index) => {
@@ -82,7 +101,6 @@ function performUnitOfWork(fiber: FiberItemType) {
       sibling: null,
       dom: null,
     }
-    console.log('newWorkOfUnit', newWorkOfUnit)
     if (index === 0) {
       fiber.child = newWorkOfUnit
     } else {
@@ -92,16 +110,4 @@ function performUnitOfWork(fiber: FiberItemType) {
     }
     prevChild = newWorkOfUnit
   })
-
-  // 5. 返回下一个任务
-  if (fiber.child)
-    return fiber.child
-  if (fiber.sibling)
-    return fiber.sibling
-  return fiber.parent?.sibling
-}
-
-export default {
-  createElement,
-  render,
 }
