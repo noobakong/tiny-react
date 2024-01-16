@@ -8,5 +8,6 @@ export default antfu({
     'no-console': 'off',
     'style/brace-style': 'off',
     'curly': 'off',
+    'antfu/if-newline': 'off',
   },
 })

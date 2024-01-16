@@ -6,6 +6,7 @@ export default {
 }
 
 let nextFiber: FiberItemType | null | undefined = null
+let root: FiberItemType | null = null
 function render(el: ElementItem, container: HTMLElement) {
   nextFiber = {
     dom: container,
@@ -17,6 +18,7 @@ function render(el: ElementItem, container: HTMLElement) {
     parent: null,
     type: el.type,
   }
+  root = nextFiber
 }
 
 function workLoop(deadLine: IdleDeadline) {
@@ -25,9 +27,25 @@ function workLoop(deadLine: IdleDeadline) {
     nextFiber = performUnitOfWork(nextFiber)
     shouldYield = deadLine.timeRemaining() < 1
   }
+  if (!nextFiber && root) {
+    commitRoot(root)
+  }
   requestIdleCallback(workLoop)
 }
 requestIdleCallback(workLoop)
+
+function commitRoot(root: FiberItemType | null) {
+  commitWork(root!.child)
+  root = null
+}
+
+function commitWork(fiber: FiberItemType | null) {
+  if (!fiber) return
+  // 3. 添加dom
+  fiber.parent && fiber.parent.dom?.appendChild(fiber.dom!)
+  commitWork(fiber.child)
+  commitWork(fiber.sibling)
+}
 
 function performUnitOfWork(fiber: FiberItemType) {
   // debugger
@@ -36,8 +54,6 @@ function performUnitOfWork(fiber: FiberItemType) {
     const dom = fiber.dom = createDom(fiber.type)
     // 2. 设置属性
     updateProps(dom, fiber.props)
-    // 3. 添加dom
-    fiber.parent && fiber.parent.dom?.appendChild(dom)
   }
   // 4. 创建下一个任务 设置好链表指针
   initChildren(fiber)
