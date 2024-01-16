@@ -41,31 +41,51 @@ function commitRoot(root: FiberItemType | null) {
 
 function commitWork(fiber: FiberItemType | null) {
   if (!fiber) return
-  // 3. 添加dom
-  fiber.parent && fiber.parent.dom?.appendChild(fiber.dom!)
+  let fiberParent = fiber.parent
+  while (!fiberParent?.dom) {
+    fiberParent = fiberParent?.parent || null
+  }
+  // 添加dom
+  fiber.dom && fiberParent.dom.appendChild(fiber.dom)
   commitWork(fiber.child)
   commitWork(fiber.sibling)
 }
 
-function performUnitOfWork(fiber: FiberItemType) {
-  // debugger
+function updateFunctionComponent(fiber: FiberItemType) {
+  const children = [(fiber.type as Function)(fiber.props)]
+  fiber.props.children = children
+  initChildren(fiber)
+}
+
+function updateNormalComponent(fiber: FiberItemType) {
   if (!fiber.dom) {
     // 1. 创建dom
-    const dom = fiber.dom = createDom(fiber.type)
+    const dom = fiber.dom = createDom(fiber.type as string)
     // 2. 设置属性
     updateProps(dom, fiber.props)
   }
-  // 4. 创建下一个任务 设置好链表指针
   initChildren(fiber)
-  // 5. 返回下一个任务
-  if (fiber.child)
-    return fiber.child
-  if (fiber.sibling)
-    return fiber.sibling
-  return fiber.parent?.sibling
 }
 
-function createTextNode(text: string) {
+function performUnitOfWork(fiber: FiberItemType) {
+  const isFunctionComponent = typeof fiber.type === 'function'
+  if (isFunctionComponent) {
+    updateFunctionComponent(fiber)
+  } else {
+    updateNormalComponent(fiber)
+  }
+  // 返回下一个任务
+  if (fiber.child)
+    return fiber.child
+
+  let nextFiber: FiberItemType | null = fiber
+  while (nextFiber) {
+    if (nextFiber.sibling) return nextFiber.sibling
+    nextFiber = nextFiber.parent
+  }
+}
+
+function createTextNode(text: string | number) {
   return {
     type: 'TEXT_ELEMENT',
     props: {
@@ -78,20 +98,23 @@ function createTextNode(text: string) {
 function createElement(
   type: string,
   props: ElementItem['props'],
-  ...children: ElementItem['props']['children'] | string[]
+  ...children: Array<ElementItem | string | number>
 ) {
+  console.log(children, 'children')
   return {
     type,
     props: {
       ...props,
       children: children.map((child: any) => {
-        return typeof child === 'string' ? createTextNode(child) : child
+        const isTextNode = typeof child === 'string' || typeof child === 'number'
+        return isTextNode ? createTextNode(child) : child
       }),
     },
   }
 }
 
 function createDom(type: string) {
+  console.log(type)
   const dom = type === 'TEXT_ELEMENT'
     ? document.createTextNode('')
     : document.createElement(type)

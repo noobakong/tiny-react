@@ -15,5 +15,5 @@ export interface FiberItemType {
   child: FiberItemType | null
   sibling: FiberItemType | null
   parent: FiberItemType | null
-  type: string
+  type: string | Function
 }
