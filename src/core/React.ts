@@ -29,6 +29,7 @@ function workLoop(deadLine: IdleDeadline) {
   }
   if (!nextFiber && root) {
     commitRoot(root)
+    root = null
   }
   requestIdleCallback(workLoop)
 }
@@ -36,7 +37,6 @@ requestIdleCallback(workLoop)
 
 function commitRoot(root: FiberItemType | null) {
   commitWork(root!.child)
-  root = null
 }
 
 function commitWork(fiber: FiberItemType | null) {
@@ -100,7 +100,6 @@ function createElement(
   props: ElementItem['props'],
   ...children: Array<ElementItem | string | number>
 ) {
-  console.log(children, 'children')
   return {
     type,
     props: {
