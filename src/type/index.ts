@@ -7,6 +7,7 @@ export interface ElementItem {
 }
 
 export interface FiberItemType {
+  type: string | Function
   dom: HTMLElement | Text | null
   props: {
     [key: string]: any
@@ -15,5 +16,6 @@ export interface FiberItemType {
   child: FiberItemType | null
   sibling: FiberItemType | null
   parent: FiberItemType | null
-  type: string | Function
+  alternate: FiberItemType | null
+  effectTag?: 'placement' | 'update'
 }

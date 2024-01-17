@@ -3,10 +3,12 @@ import type { ElementItem, FiberItemType } from '@/type'
 export default {
   createElement,
   render,
+  update,
 }
 
 let nextFiber: FiberItemType | null | undefined = null
 let root: FiberItemType | null = null
+let currentRoot: FiberItemType | null = null
 function render(el: ElementItem, container: HTMLElement) {
   nextFiber = {
     dom: container,
@@ -17,6 +19,21 @@ function render(el: ElementItem, container: HTMLElement) {
     sibling: null,
     parent: null,
     type: el.type,
+    alternate: null,
+  }
+  root = nextFiber
+}
+
+function update() {
+  if (!currentRoot) return
+  nextFiber = {
+    dom: currentRoot.dom,
+    props: currentRoot.props,
+    type: currentRoot.type,
+    child: null,
+    sibling: null,
+    parent: null,
+    alternate: currentRoot,
   }
   root = nextFiber
 }
@@ -28,15 +45,17 @@ function workLoop(deadLine: IdleDeadline) {
     shouldYield = deadLine.timeRemaining() < 1
   }
   if (!nextFiber && root) {
-    commitRoot(root)
-    root = null
+    commitRoot()
   }
   requestIdleCallback(workLoop)
 }
 requestIdleCallback(workLoop)
 
-function commitRoot(root: FiberItemType | null) {
-  commitWork(root!.child)
+function commitRoot() {
+  if (!root) return
+  commitWork(root.child)
+  currentRoot = root
+  root = null
 }
 
 function commitWork(fiber: FiberItemType | null) {
@@ -45,8 +64,15 @@ function commitWork(fiber: FiberItemType | null) {
   while (!fiberParent?.dom) {
     fiberParent = fiberParent?.parent || null
   }
-  // 添加dom
-  fiber.dom && fiberParent.dom.appendChild(fiber.dom)
+
+  if (fiber.effectTag === 'update') {
+    if (!fiber.dom) return
+    updateProps(fiber.dom, fiber.props, fiber.alternate?.props)
+  } else {
+    // 添加dom
+    fiber.dom && fiberParent.dom.appendChild(fiber.dom)
+  }
+
   commitWork(fiber.child)
   commitWork(fiber.sibling)
 }
@@ -113,32 +139,75 @@ function createElement(
 }
 
 function createDom(type: string) {
-  console.log(type)
   const dom = type === 'TEXT_ELEMENT'
     ? document.createTextNode('')
     : document.createElement(type)
   return dom
 }
 
-function updateProps(dom: HTMLElement | Text, props: ElementItem['props']) {
-  Object.keys(props).forEach((key) => {
-    if (key === 'children')
-      return;
-    (dom as any)[key] = props[key]
+function updateProps(
+  dom: HTMLElement | Text,
+  newProps: ElementItem['props'],
+  oldProps: ElementItem['props'] = { children: [] },
+) {
+  // 老的有，新的没有 删除
+  Object.keys(oldProps).forEach((oldKey) => {
+    if (oldKey === 'children') return
+    if (!(oldKey in newProps)) {
+      (dom as HTMLElement).removeAttribute(oldKey)
+    }
+  })
+  // 老的没有，新的有，增加
+  // 老的有， 新的有， 改变
+  Object.keys(newProps).forEach((key) => {
+    if (key === 'children') return
+    if (newProps[key] === oldProps[key]) return
+    // 添加绑定事件
+    if (key.startsWith('on')) {
+      const eventStr = key.substring(2).toLowerCase()
+      dom.removeEventListener(eventStr, oldProps[key])
+      dom.addEventListener(eventStr, newProps[key])
+      return
+    }
+    (dom as any)[key] = newProps[key]
   })
 }
 function initChildren(fiber: FiberItemType) {
+  let oldFiber = fiber.alternate?.child
   const children = fiber.props.children
   let prevChild: FiberItemType | null = null
   children.forEach((child, index) => {
-    const newWorkOfUnit = {
-      type: child.type,
-      props: child.props,
-      parent: fiber,
-      child: null,
-      sibling: null,
-      dom: null,
+    const isSameType = child.type === oldFiber?.type
+    let newWorkOfUnit: FiberItemType
+    if (isSameType) {
+      // update
+      newWorkOfUnit = {
+        type: child.type,
+        props: child.props,
+        parent: fiber,
+        child: null,
+        sibling: null,
+        dom: oldFiber?.dom || null,
+        alternate: oldFiber || null,
+        effectTag: 'update',
+      }
+    } else {
+      newWorkOfUnit = {
+        type: child.type,
+        props: child.props,
+        parent: fiber,
+        child: null,
+        sibling: null,
+        dom: null,
+        alternate: null,
+        effectTag: 'placement',
+      }
     }
+
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling
+    }
+
     if (index === 0) {
       fiber.child = newWorkOfUnit
     } else {

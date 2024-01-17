@@ -19,9 +19,18 @@ function Person(props: IProp) {
   )
 }
 
+let a = 1
 function App() {
   return (
     <div id="hhhh">
+      <button onClick={() => {
+        console.log('onclick')
+        a++
+        React.update()
+      }}
+      >
+        {a}
+      </button>
       <Person name="akong" age={18}></Person>
       <Person name="akong" age={18}></Person>
       <div>
