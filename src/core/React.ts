@@ -6,11 +6,11 @@ export default {
   update,
 }
 
-let nextFiber: FiberItemType | null | undefined = null
-let root: FiberItemType | null = null
+let nextWorkFiber: FiberItemType | null | undefined = null
+let wipRoot: FiberItemType | null = null
 let currentRoot: FiberItemType | null = null
 function render(el: ElementItem, container: HTMLElement) {
-  nextFiber = {
+  wipRoot = {
     dom: container,
     props: {
       children: [el],
@@ -21,12 +21,12 @@ function render(el: ElementItem, container: HTMLElement) {
     type: el.type,
     alternate: null,
   }
-  root = nextFiber
+  nextWorkFiber = wipRoot
 }
 
 function update() {
   if (!currentRoot) return
-  nextFiber = {
+  wipRoot = {
     dom: currentRoot.dom,
     props: currentRoot.props,
     type: currentRoot.type,
@@ -35,16 +35,16 @@ function update() {
     parent: null,
     alternate: currentRoot,
   }
-  root = nextFiber
+  nextWorkFiber = wipRoot
 }
 
 function workLoop(deadLine: IdleDeadline) {
   let shouldYield = false
-  while (!shouldYield && nextFiber) {
-    nextFiber = performUnitOfWork(nextFiber)
+  while (!shouldYield && nextWorkFiber) {
+    nextWorkFiber = performUnitOfWork(nextWorkFiber)
     shouldYield = deadLine.timeRemaining() < 1
   }
-  if (!nextFiber && root) {
+  if (!nextWorkFiber && wipRoot) {
     commitRoot()
   }
   requestIdleCallback(workLoop)
@@ -52,10 +52,10 @@ function workLoop(deadLine: IdleDeadline) {
 requestIdleCallback(workLoop)
 
 function commitRoot() {
-  if (!root) return
-  commitWork(root.child)
-  currentRoot = root
-  root = null
+  if (!wipRoot) return
+  commitWork(wipRoot.child)
+  currentRoot = wipRoot
+  wipRoot = null
 }
 
 function commitWork(fiber: FiberItemType | null) {
@@ -80,7 +80,7 @@ function commitWork(fiber: FiberItemType | null) {
 function updateFunctionComponent(fiber: FiberItemType) {
   const children = [(fiber.type as Function)(fiber.props)]
   fiber.props.children = children
-  initChildren(fiber)
+  reconcileChildren(fiber)
 }
 
 function updateNormalComponent(fiber: FiberItemType) {
@@ -90,7 +90,7 @@ function updateNormalComponent(fiber: FiberItemType) {
     // 2. 设置属性
     updateProps(dom, fiber.props)
   }
-  initChildren(fiber)
+  reconcileChildren(fiber)
 }
 
 function performUnitOfWork(fiber: FiberItemType) {
@@ -172,7 +172,7 @@ function updateProps(
     (dom as any)[key] = newProps[key]
   })
 }
-function initChildren(fiber: FiberItemType) {
+function reconcileChildren(fiber: FiberItemType) {
   let oldFiber = fiber.alternate?.child
   const children = fiber.props.children
   let prevChild: FiberItemType | null = null
