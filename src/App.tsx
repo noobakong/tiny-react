@@ -19,30 +19,32 @@ function Person(props: IProp) {
   )
 }
 
-const App = (
-  <div id="hhhh">
-    <Person name="akong" age={18}></Person>
-    <Person name="akong" age={18}></Person>
-    <div>
-      a
+function App() {
+  return (
+    <div id="hhhh">
+      <Person name="akong" age={18}></Person>
+      <Person name="akong" age={18}></Person>
       <div>
-        b
+        a
         <div>
-          pp
+          b
+          <div>
+            pp
+          </div>
+          <div>
+            d
+            <div>e</div>
+            <div>f</div>
+          </div>
         </div>
         <div>
-          d
-          <div>e</div>
-          <div>f</div>
+          c
+          <div>j</div>
+          <div>h</div>
         </div>
-      </div>
-      <div>
-        c
-        <div>j</div>
-        <div>h</div>
       </div>
     </div>
-  </div>
-)
+  )
+}
 
 export default App
