@@ -9,6 +9,8 @@ export default {
 let nextWorkFiber: FiberItemType | null | undefined = null
 let wipRoot: FiberItemType | null = null
 let currentRoot: FiberItemType | null = null
+let deletions: Array<FiberItemType> = []
+
 function render(el: ElementItem, container: HTMLElement) {
   wipRoot = {
     dom: container,
@@ -53,9 +55,11 @@ requestIdleCallback(workLoop)
 
 function commitRoot() {
   if (!wipRoot) return
+  deletions.forEach(commitDeletion)
   commitWork(wipRoot.child)
   currentRoot = wipRoot
   wipRoot = null
+  deletions = []
 }
 
 function commitWork(fiber: FiberItemType | null) {
@@ -75,6 +79,14 @@ function commitWork(fiber: FiberItemType | null) {
 
   commitWork(fiber.child)
   commitWork(fiber.sibling)
+}
+
+function commitDeletion(fiber: FiberItemType) {
+  let domFiber: FiberItemType | null = fiber
+  while (!domFiber?.dom) {
+    domFiber = domFiber?.child || null
+  }
+  domFiber?.dom?.remove()
 }
 
 function updateFunctionComponent(fiber: FiberItemType) {
@@ -172,13 +184,14 @@ function updateProps(
     (dom as any)[key] = newProps[key]
   })
 }
+
 function reconcileChildren(fiber: FiberItemType) {
   let oldFiber = fiber.alternate?.child
   const children = fiber.props.children
   let prevChild: FiberItemType | null = null
   children.forEach((child, index) => {
     const isSameType = child.type === oldFiber?.type
-    let newWorkOfUnit: FiberItemType
+    let newWorkOfUnit: FiberItemType | null = null
     if (isSameType) {
       // update
       newWorkOfUnit = {
@@ -192,16 +205,20 @@ function reconcileChildren(fiber: FiberItemType) {
         effectTag: 'update',
       }
     } else {
-      newWorkOfUnit = {
-        type: child.type,
-        props: child.props,
-        parent: fiber,
-        child: null,
-        sibling: null,
-        dom: null,
-        alternate: null,
-        effectTag: 'placement',
+      if (child) {
+        newWorkOfUnit = {
+          type: child.type,
+          props: child.props,
+          parent: fiber,
+          child: null,
+          sibling: null,
+          dom: null,
+          alternate: null,
+          effectTag: 'placement',
+        }
       }
+
+      oldFiber && deletions.push(oldFiber)
     }
 
     if (oldFiber) {
@@ -215,6 +232,14 @@ function reconcileChildren(fiber: FiberItemType) {
         prevChild.sibling = newWorkOfUnit
       }
     }
-    prevChild = newWorkOfUnit
+
+    if (newWorkOfUnit) {
+      prevChild = newWorkOfUnit
+    }
   })
+
+  while (oldFiber) {
+    deletions.push(oldFiber)
+    oldFiber = oldFiber.sibling
+  }
 }
