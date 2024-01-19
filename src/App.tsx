@@ -5,7 +5,7 @@ interface IProp {
   name: string
 }
 
-function Person(props: IProp) {
+export function Person(props: IProp) {
   const { name, age } = props
   return (
     <div>
@@ -19,39 +19,65 @@ function Person(props: IProp) {
   )
 }
 
+let countFoo = 1
+function Foo() {
+  console.log('foo')
+  const update = React.update()
+  return (
+    <div>
+      foo
+      <button onClick={() => {
+        console.log('onclick')
+        countFoo++
+        update()
+      }}
+      >
+        click
+        {' '}
+        {countFoo}
+      </button>
+    </div>
+  )
+}
+
+let countBar = 1
+function Bar() {
+  console.log('Barr')
+  const update = React.update()
+  return (
+    <div>
+      bar
+      <button onClick={() => {
+        console.log('onclick')
+        countBar++
+        update()
+      }}
+      >
+        click
+        {' '}
+        {countBar}
+      </button>
+    </div>
+  )
+}
+
 let a = 1
 function App() {
+  const update = React.update()
   return (
     <div id="hhhh">
       <button onClick={() => {
         console.log('onclick')
         a++
-        React.update()
+        update()
       }}
       >
+        click
+        {' '}
         {a}
       </button>
-      <Person name="akong" age={18}></Person>
-      <Person name="akong" age={18}></Person>
-      <div>
-        a
-        <div>
-          b
-          <div>
-            pp
-          </div>
-          <div>
-            d
-            <div>e</div>
-            <div>f</div>
-          </div>
-        </div>
-        <div>
-          c
-          <div>j</div>
-          <div>h</div>
-        </div>
-      </div>
+      <Foo></Foo>
+      <Bar></Bar>
     </div>
   )
 }
