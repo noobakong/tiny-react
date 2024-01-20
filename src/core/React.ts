@@ -5,6 +5,7 @@ export default {
   render,
   useState,
   update,
+  useEffect,
 }
 
 let nextWorkFiber: FiberItemType | null | undefined = null
@@ -77,6 +78,17 @@ function useState<T>(initState: T) {
   return [stateHook.state, setState] as [T, typeof setState]
 }
 
+let effectHooks: Array<any> = []
+function useEffect(callback: Function, deps: Array<any>) {
+  const effectHook = {
+    deps,
+    callback,
+    cleanup: () => {},
+  }
+  effectHooks.push(effectHook)
+  wipFiber && (wipFiber.effectHooks = effectHooks)
+}
+
 function workLoop(deadLine: IdleDeadline) {
   let shouldYield = false
   while (!shouldYield && nextWorkFiber) {
@@ -97,9 +109,50 @@ function commitRoot() {
   if (!wipRoot) return
   deletions.forEach(commitDeletion)
   commitWork(wipRoot.child)
+  commitEffectHooks()
   // currentRoot = wipRoot
   wipRoot = null
   deletions = []
+}
+
+function commitEffectHooks() {
+  const run = (fiber: FiberItemType | null) => {
+    if (!fiber) return
+
+    // 初始化
+    if (!fiber.alternate) {
+      fiber.effectHooks?.forEach((effectHook: any) => {
+        effectHook.cleanup = effectHook.callback()
+      })
+    } else {
+      fiber.effectHooks?.forEach((newEffectHook: any, index: number) => {
+        if (newEffectHook.deps.length === 0) return
+        const oldEffectHook = fiber?.alternate?.effectHooks[index]
+        const hasChanged = oldEffectHook.deps.some((oldDep: any, index: number) => {
+          return oldDep !== newEffectHook.deps[index]
+        })
+
+        if (hasChanged) {
+          // newEffectHook.callback()
+          newEffectHook.cleanup = newEffectHook.callback()
+        }
+      })
+    }
+    run(fiber.child as FiberItemType)
+    run(fiber.sibling as FiberItemType)
+  }
+
+  function cleanUpHooks(fiber: FiberItemType | null) {
+    if (!fiber) return
+    fiber?.alternate?.effectHooks?.forEach((effectHook: any) => {
+      if (effectHook.deps.length === 0) return
+      effectHook.cleanup && effectHook.cleanup()
+    })
+    cleanUpHooks(fiber.child)
+    cleanUpHooks(fiber.sibling)
+  }
+  cleanUpHooks(wipRoot)
+  run(wipRoot)
 }
 
 function commitWork(fiber: FiberItemType | null) {
@@ -132,6 +185,7 @@ function commitDeletion(fiber: FiberItemType) {
 function updateFunctionComponent(fiber: FiberItemType) {
   stateHooks = []
   stateHooksIndex = 0
+  effectHooks = []
   wipFiber = fiber
   const children = [(fiber.type as Function)(fiber.props)]
   fiber.props.children = children
