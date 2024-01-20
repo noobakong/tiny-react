@@ -3,6 +3,7 @@ import type { ElementItem, FiberItemType } from '@/type'
 export default {
   createElement,
   render,
+  useState,
   update,
 }
 
@@ -37,6 +38,43 @@ function update() {
     }
     nextWorkFiber = wipRoot
   }
+}
+
+let stateHooks: Array<any> = []
+let stateHooksIndex = 0
+function useState<T>(initState: T) {
+  const oldHook = wipFiber?.alternate?.stateHooks[stateHooksIndex]
+  const stateHook = {
+    state: oldHook?.state || initState,
+    queue: oldHook?.queue || [],
+  }
+  const actions = oldHook?.queue || []
+  actions.forEach((action: any) => {
+    stateHook.state = action(stateHook.state)
+  })
+  stateHook.queue = []
+  stateHooksIndex++
+  stateHooks.push(stateHook)
+  if (wipFiber) {
+    wipFiber.stateHooks = stateHooks
+  }
+
+  function setState(action: T | ((state: T) => T)) {
+    const eagerState = typeof action === 'function'
+      ? (action as Function)(stateHook.state)
+      : action
+    if (eagerState === stateHook.state) return
+
+    stateHook.queue.push(typeof action === 'function' ? action : () => action)
+    const currentFiber = wipFiber
+    if (!currentFiber) return
+    wipRoot = {
+      ...currentFiber,
+      alternate: currentFiber,
+    }
+    nextWorkFiber = wipRoot
+  }
+  return [stateHook.state, setState] as [T, typeof setState]
 }
 
 function workLoop(deadLine: IdleDeadline) {
@@ -92,6 +130,8 @@ function commitDeletion(fiber: FiberItemType) {
 }
 
 function updateFunctionComponent(fiber: FiberItemType) {
+  stateHooks = []
+  stateHooksIndex = 0
   wipFiber = fiber
   const children = [(fiber.type as Function)(fiber.props)]
   fiber.props.children = children

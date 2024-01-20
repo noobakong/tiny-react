@@ -18,4 +18,5 @@ export interface FiberItemType {
   parent: FiberItemType | null
   alternate: FiberItemType | null
   effectTag?: 'placement' | 'update'
+  stateHooks?: any
 }
